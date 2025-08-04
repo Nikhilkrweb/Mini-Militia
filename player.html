@@ -13,8 +13,7 @@
     }
     canvas {
       display: block;
-      width: 100vw;
-      height: 100vh;
+      background: #000;
     }
     #joystick-container {
       position: absolute;
@@ -44,8 +43,14 @@
   </div>  <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
     const TILE_SIZE = 64;
     const mapWidth = 52;
@@ -102,6 +107,8 @@
           const dx = x * TILE_SIZE - camera.x + canvas.width / 2 - player.x;
           const dy = y * TILE_SIZE - camera.y + canvas.height / 2 - player.y;
 
+          if (dx + TILE_SIZE < 0 || dy + TILE_SIZE < 0 || dx > canvas.width || dy > canvas.height) continue;
+
           ctx.drawImage(tileImage, sx, sy, TILE_SIZE, TILE_SIZE, dx, dy, TILE_SIZE, TILE_SIZE);
         }
       }
@@ -122,7 +129,6 @@
       player.x += joystick.dx * player.speed;
       player.y += joystick.dy * player.speed;
 
-      // Clamp player to map boundaries
       player.x = Math.max(0, Math.min(player.x, mapWidth * TILE_SIZE));
       player.y = Math.max(0, Math.min(player.y, mapHeight * TILE_SIZE));
 
