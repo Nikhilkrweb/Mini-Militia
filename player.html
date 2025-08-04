@@ -143,8 +143,25 @@
     }
 
     function updatePlayer() {
-      const dx = ((keys['ArrowRight'] || joystick.dx > 0.2 ? 1 : 0) - (keys['ArrowLeft'] || joystick.dx < -0.2 ? 1 : 0)) * player.speed;
-      const dy = ((keys['ArrowDown'] || joystick.dy > 0.2 ? 1 : 0) - (keys['ArrowUp'] || joystick.dy < -0.2 ? 1 : 0)) * player.speed;
+      let dx = 0;
+      let dy = 0;
+
+      if (keys['ArrowRight']) dx += 1;
+      if (keys['ArrowLeft']) dx -= 1;
+      if (keys['ArrowDown']) dy += 1;
+      if (keys['ArrowUp']) dy -= 1;
+
+      dx += joystick.dx;
+      dy += joystick.dy;
+
+      const magnitude = Math.sqrt(dx * dx + dy * dy);
+      if (magnitude > 1) {
+        dx /= magnitude;
+        dy /= magnitude;
+      }
+
+      dx *= player.speed;
+      dy *= player.speed;
 
       const nextX = player.x + dx;
       const nextY = player.y + dy;
@@ -162,7 +179,6 @@
 
     function drawPlayer() {
       ctx.drawImage(playerImage, canvas.width / 2 - 16, canvas.height / 2 - 16, 32, 32);
-      // draw player collision box (debug)
       ctx.strokeStyle = 'lime';
       ctx.strokeRect(canvas.width / 2 - 16, canvas.height / 2 - 16, 32, 32);
     }
@@ -184,22 +200,34 @@
     const joystickStick = document.getElementById("joystick");
     let isDragging = false;
 
-    joystickContainer.addEventListener("touchstart", () => isDragging = true);
+    joystickContainer.addEventListener("touchstart", (e) => {
+      isDragging = true;
+    });
+
     joystickContainer.addEventListener("touchmove", (e) => {
       if (!isDragging) return;
       const touch = e.touches[0];
       const rect = joystickContainer.getBoundingClientRect();
-      const x = touch.clientX - rect.left - 50;
-      const y = touch.clientY - rect.top - 50;
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const dx = touch.clientX - centerX;
+      const dy = touch.clientY - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const radius = rect.width / 2;
 
-      const dx = Math.max(-50, Math.min(50, x));
-      const dy = Math.max(-50, Math.min(50, y));
+      let clampedDx = dx;
+      let clampedDy = dy;
 
-      joystickStick.style.left = `${dx + 50 - 25}px`;
-      joystickStick.style.top = `${dy + 50 - 25}px`;
+      if (dist > radius) {
+        clampedDx = (dx / dist) * radius;
+        clampedDy = (dy / dist) * radius;
+      }
 
-      joystick.dx = dx / 50;
-      joystick.dy = dy / 50;
+      joystickStick.style.left = `${clampedDx + radius - 25}px`;
+      joystickStick.style.top = `${clampedDy + radius - 25}px`;
+
+      joystick.dx = clampedDx / radius;
+      joystick.dy = clampedDy / radius;
     });
 
     joystickContainer.addEventListener("touchend", () => {
