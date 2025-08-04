@@ -8,9 +8,13 @@
       padding: 0;
       overflow: hidden;
       background: #000;
+      width: 100vw;
+      height: 100vh;
     }
     canvas {
       display: block;
+      width: 100vw;
+      height: 100vh;
     }
     #joystick-container {
       position: absolute;
@@ -72,14 +76,19 @@
     }
 
     const player = {
-      x: 3 * TILE_SIZE,
-      y: 3 * TILE_SIZE,
+      x: mapWidth * TILE_SIZE / 2,
+      y: mapHeight * TILE_SIZE / 2,
       speed: 4
     };
 
     const keys = {};
     window.addEventListener("keydown", e => keys[e.key] = true);
     window.addEventListener("keyup", e => keys[e.key] = false);
+
+    const camera = {
+      x: 0,
+      y: 0
+    };
 
     function drawTileLayer(layer) {
       const data = layer.data;
@@ -90,15 +99,18 @@
 
           const sx = (tileIndex % tilemap.tilesetColumns) * TILE_SIZE;
           const sy = Math.floor(tileIndex / tilemap.tilesetColumns) * TILE_SIZE;
-          const dx = x * TILE_SIZE;
-          const dy = y * TILE_SIZE;
+          const dx = x * TILE_SIZE - camera.x + canvas.width / 2 - player.x;
+          const dy = y * TILE_SIZE - camera.y + canvas.height / 2 - player.y;
+
           ctx.drawImage(tileImage, sx, sy, TILE_SIZE, TILE_SIZE, dx, dy, TILE_SIZE, TILE_SIZE);
         }
       }
     }
 
     function drawPlayer() {
-      ctx.drawImage(playerImage, player.x, player.y, 32, 32);
+      const dx = canvas.width / 2 - 16;
+      const dy = canvas.height / 2 - 16;
+      ctx.drawImage(playerImage, dx, dy, 32, 32);
     }
 
     function updatePlayer() {
@@ -107,9 +119,15 @@
       if (keys["ArrowLeft"]) player.x -= player.speed;
       if (keys["ArrowRight"]) player.x += player.speed;
 
-      // Joystick movement
       player.x += joystick.dx * player.speed;
       player.y += joystick.dy * player.speed;
+
+      // Clamp player to map boundaries
+      player.x = Math.max(0, Math.min(player.x, mapWidth * TILE_SIZE));
+      player.y = Math.max(0, Math.min(player.y, mapHeight * TILE_SIZE));
+
+      camera.x = player.x;
+      camera.y = player.y;
     }
 
     function gameLoop() {
@@ -125,7 +143,6 @@
       gameLoop();
     };
 
-    // Joystick logic
     const joystick = { dx: 0, dy: 0 };
     const joystickContainer = document.getElementById("joystick-container");
     const joystickStick = document.getElementById("joystick");
