@@ -66,7 +66,13 @@
     const player = {
       x: 0,
       y: 0,
-      speed: 4
+      width: 32,
+      height: 32,
+      speed: 4,
+      vx: 0,
+      vy: 0,
+      gravity: 0.5,
+      onGround: false
     };
 
     const camera = { x: 0, y: 0 };
@@ -91,9 +97,17 @@
       tilemap.mapHeight = data.height;
       tilemap.layers = data.layers.filter(l => l.type === 'tilelayer');
 
-      // Set player spawn position at center
       player.x = data.width * data.tilewidth / 2;
       player.y = data.height * data.tileheight / 2;
+    }
+
+    function getTileAt(x, y) {
+      const tx = Math.floor(x / TILE_SIZE);
+      const ty = Math.floor(y / TILE_SIZE);
+      const index = ty * tilemap.mapWidth + tx;
+      const solidLayer = tilemap.layers.find(l => l.name === "tile");
+      if (!solidLayer) return 0;
+      return solidLayer.data[index];
     }
 
     function drawLayer(layer) {
@@ -108,23 +122,39 @@
             const sy = tilemap.margin + Math.floor(tileIndex / tilemap.tilesetColumns) * (TILE_SIZE + tilemap.spacing);
             const dx = x * TILE_SIZE - camera.x + canvas.width / 2 - player.x;
             const dy = y * TILE_SIZE - camera.y + canvas.height / 2 - player.y;
-            ctx.drawImage(tileImage, sx, sy, TILE_SIZE, TILE_SIZE, dx, dy, TILE_SIZE, TILE_SIZE);
+            ctx.drawImage(tileImage, Math.floor(sx), Math.floor(sy), TILE_SIZE, TILE_SIZE, Math.floor(dx), Math.floor(dy), TILE_SIZE, TILE_SIZE);
           }
         }
       }
     }
 
     function updatePlayer() {
-      if (keys['ArrowLeft']) player.x -= player.speed;
-      if (keys['ArrowRight']) player.x += player.speed;
-      if (keys['ArrowUp']) player.y -= player.speed;
-      if (keys['ArrowDown']) player.y += player.speed;
+      player.vx = (keys['ArrowRight'] || joystick.dx > 0.2 ? 1 : 0) - (keys['ArrowLeft'] || joystick.dx < -0.2 ? 1 : 0);
+      player.vx *= player.speed;
 
-      player.x += joystick.dx * player.speed;
-      player.y += joystick.dy * player.speed;
+      if ((keys['ArrowUp'] || joystick.dy < -0.6) && player.onGround) {
+        player.vy = -10;
+        player.onGround = false;
+      }
 
-      player.x = Math.max(0, Math.min(player.x, tilemap.mapWidth * TILE_SIZE));
-      player.y = Math.max(0, Math.min(player.y, tilemap.mapHeight * TILE_SIZE));
+      player.vy += player.gravity;
+
+      let nextX = player.x + player.vx;
+      let nextY = player.y + player.vy;
+
+      const tileBelow = getTileAt(player.x + player.width / 2, nextY + player.height);
+      const tileFeet = getTileAt(nextX + player.width / 2, nextY + player.height);
+
+      if (tileFeet) {
+        player.vy = 0;
+        player.onGround = true;
+        nextY = Math.floor((player.y + player.height) / TILE_SIZE) * TILE_SIZE - player.height;
+      } else {
+        player.onGround = false;
+      }
+
+      player.x = nextX;
+      player.y = nextY;
 
       camera.x = player.x;
       camera.y = player.y;
@@ -147,13 +177,11 @@
       gameLoop();
     };
 
-    // Joystick Logic
     const joystickContainer = document.getElementById("joystick-container");
     const joystickStick = document.getElementById("joystick");
     let isDragging = false;
 
     joystickContainer.addEventListener("touchstart", () => isDragging = true);
-
     joystickContainer.addEventListener("touchmove", (e) => {
       if (!isDragging) return;
       const touch = e.touches[0];
