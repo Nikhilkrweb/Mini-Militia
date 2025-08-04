@@ -1,0 +1,104 @@
+<!DOCTYPE html><html>
+<head>
+  <meta charset="utf-8">
+  <title>Tilemap with Player</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const TILE_SIZE = 64;
+    const mapWidth = 52;
+    const mapHeight = 18;
+
+    const tileImage = new Image();
+    tileImage.src = "tile64_new.png";
+
+    const playerImage = new Image();
+    playerImage.src = "player.png"; // assumed to be 32x32 or scaled to match game
+
+    // Replace this JSON with actual parsed data or load via fetch
+    const tilemap = {
+      layers: [],
+      tilewidth: 64,
+      tileheight: 64,
+      tilesetColumns: 15,
+      tiles: [] // to be filled with tile indices for each layer
+    };
+
+    // Placeholder: Load from external JSON if needed
+    async function loadTilemap() {
+      const res = await fetch("tilemap.json");
+      const data = await res.json();
+
+      tilemap.layers = data.layers.filter(layer => layer.type === "tilelayer");
+      tilemap.tilewidth = data.tilewidth;
+      tilemap.tileheight = data.tileheight;
+      tilemap.tilesetColumns = Math.floor(data.tilesets[0].imagewidth / data.tilewidth);
+    }
+
+    const player = {
+      x: 3 * TILE_SIZE,
+      y: 3 * TILE_SIZE,
+      speed: 4
+    };
+
+    const keys = {};
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
+
+    function drawTileLayer(layer) {
+      const data = layer.data;
+      for (let y = 0; y < mapHeight; y++) {
+        for (let x = 0; x < mapWidth; x++) {
+          const tileIndex = data[y * mapWidth + x] - 1;
+          if (tileIndex < 0) continue;
+
+          const sx = (tileIndex % tilemap.tilesetColumns) * TILE_SIZE;
+          const sy = Math.floor(tileIndex / tilemap.tilesetColumns) * TILE_SIZE;
+          const dx = x * TILE_SIZE;
+          const dy = y * TILE_SIZE;
+          ctx.drawImage(tileImage, sx, sy, TILE_SIZE, TILE_SIZE, dx, dy, TILE_SIZE, TILE_SIZE);
+        }
+      }
+    }
+
+    function drawPlayer() {
+      ctx.drawImage(playerImage, player.x, player.y, 32, 32);
+    }
+
+    function updatePlayer() {
+      if (keys["ArrowUp"]) player.y -= player.speed;
+      if (keys["ArrowDown"]) player.y += player.speed;
+      if (keys["ArrowLeft"]) player.x -= player.speed;
+      if (keys["ArrowRight"]) player.x += player.speed;
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      tilemap.layers.forEach(drawTileLayer);
+      updatePlayer();
+      drawPlayer();
+      requestAnimationFrame(gameLoop);
+    }
+
+    tileImage.onload = async () => {
+      await loadTilemap();
+      gameLoop();
+    };
+  </script></body>
+</html>
