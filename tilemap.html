@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tilemap Viewer</title>
+  <style>
+    canvas {
+      border: 2px solid #333;
+      display: block;
+      margin: 20px auto;
+      background: #111;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="512" height="512"></canvas>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const TILE_SIZE = 32;
+    const TILESET_PATH = 'tileset.png'; // must match what you used in Tiled
+    const MAP_PATH = 'tilemap.json';    // JSON exported from Tiled
+
+    const tilesetImage = new Image();
+    tilesetImage.src = TILESET_PATH;
+
+    tilesetImage.onload = () => {
+      fetch(MAP_PATH)
+        .then(res => res.json())
+        .then(drawMap);
+    };
+
+    function drawMap(map) {
+      const cols = map.width;
+      const rows = map.height;
+      const tileW = map.tilewidth;
+      const tileH = map.tileheight;
+
+      const tilesPerRow = tilesetImage.width / tileW;
+
+      for (let layer of map.layers) {
+        if (layer.name !== 'tile' && layer.name !== 'tilebg') continue;
+
+        for (let i = 0; i < layer.data.length; i++) {
+          const gid = layer.data[i];
+
+          if (gid === 0) continue; // skip empty tile
+
+          const sx = ((gid - 1) % tilesPerRow) * tileW;
+          const sy = Math.floor((gid - 1) / tilesPerRow) * tileH;
+
+          const dx = (i % cols) * tileW;
+          const dy = Math.floor(i / cols) * tileH;
+
+          ctx.drawImage(tilesetImage, sx, sy, tileW, tileH, dx, dy, tileW, tileH);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
