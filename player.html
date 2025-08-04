@@ -8,8 +8,6 @@
       padding: 0;
       overflow: hidden;
       background: #000;
-      width: 100vw;
-      height: 100vh;
     }
     canvas {
       display: block;
@@ -53,92 +51,92 @@
     resizeCanvas();
 
     const TILE_SIZE = 64;
-    const mapWidth = 52;
-    const mapHeight = 18;
-
-    const tileImage = new Image();
-    tileImage.src = "tile64_new.png";
-
-    const playerImage = new Image();
-    playerImage.src = "player.png";
-
     const tilemap = {
       layers: [],
       tilewidth: 64,
       tileheight: 64,
-      tilesetColumns: 15,
-      tiles: []
+      tilesetColumns: 15
     };
+
+    const tileImage = new Image();
+    const playerImage = new Image();
+    tileImage.src = "tile64_new.png";
+    playerImage.src = "player.png";
+
+    const player = {
+      x: 0,
+      y: 0,
+      speed: 4
+    };
+
+    const camera = { x: 0, y: 0 };
+
+    const keys = {};
+    const joystick = { dx: 0, dy: 0 };
+
+    window.addEventListener("keydown", e => keys[e.key] = true);
+    window.addEventListener("keyup", e => keys[e.key] = false);
 
     async function loadTilemap() {
       const res = await fetch("tilemap.json");
       const data = await res.json();
 
-      tilemap.layers = data.layers.filter(layer => layer.type === "tilelayer");
       tilemap.tilewidth = data.tilewidth;
       tilemap.tileheight = data.tileheight;
-      tilemap.tilesetColumns = Math.floor(data.tilesets[0].imagewidth / data.tilewidth);
+      tilemap.tilesetColumns = data.tilesets[0].columns;
+      tilemap.firstgid = data.tilesets[0].firstgid;
+      tilemap.margin = data.tilesets[0].margin || 0;
+      tilemap.spacing = data.tilesets[0].spacing || 0;
+      tilemap.mapWidth = data.width;
+      tilemap.mapHeight = data.height;
+      tilemap.layers = data.layers.filter(l => l.type === 'tilelayer');
+
+      // Set player spawn position at center
+      player.x = data.width * data.tilewidth / 2;
+      player.y = data.height * data.tileheight / 2;
     }
 
-    const player = {
-      x: mapWidth * TILE_SIZE / 2,
-      y: mapHeight * TILE_SIZE / 2,
-      speed: 4
-    };
-
-    const keys = {};
-    window.addEventListener("keydown", e => keys[e.key] = true);
-    window.addEventListener("keyup", e => keys[e.key] = false);
-
-    const camera = {
-      x: 0,
-      y: 0
-    };
-
-    function drawTileLayer(layer) {
+    function drawLayer(layer) {
       const data = layer.data;
-      for (let y = 0; y < mapHeight; y++) {
-        for (let x = 0; x < mapWidth; x++) {
-          const tileIndex = data[y * mapWidth + x] - 1;
-          if (tileIndex < 0) continue;
-
-          const sx = (tileIndex % tilemap.tilesetColumns) * TILE_SIZE;
-          const sy = Math.floor(tileIndex / tilemap.tilesetColumns) * TILE_SIZE;
-          const dx = x * TILE_SIZE - camera.x + canvas.width / 2 - player.x;
-          const dy = y * TILE_SIZE - camera.y + canvas.height / 2 - player.y;
-
-          if (dx + TILE_SIZE < 0 || dy + TILE_SIZE < 0 || dx > canvas.width || dy > canvas.height) continue;
-
-          ctx.drawImage(tileImage, sx, sy, TILE_SIZE, TILE_SIZE, dx, dy, TILE_SIZE, TILE_SIZE);
+      for (let y = 0; y < tilemap.mapHeight; y++) {
+        for (let x = 0; x < tilemap.mapWidth; x++) {
+          const index = y * tilemap.mapWidth + x;
+          const gid = data[index];
+          if (gid > 0) {
+            const tileIndex = gid - tilemap.firstgid;
+            const sx = tilemap.margin + (tileIndex % tilemap.tilesetColumns) * (TILE_SIZE + tilemap.spacing);
+            const sy = tilemap.margin + Math.floor(tileIndex / tilemap.tilesetColumns) * (TILE_SIZE + tilemap.spacing);
+            const dx = x * TILE_SIZE - camera.x + canvas.width / 2 - player.x;
+            const dy = y * TILE_SIZE - camera.y + canvas.height / 2 - player.y;
+            ctx.drawImage(tileImage, sx, sy, TILE_SIZE, TILE_SIZE, dx, dy, TILE_SIZE, TILE_SIZE);
+          }
         }
       }
     }
 
-    function drawPlayer() {
-      const dx = canvas.width / 2 - 16;
-      const dy = canvas.height / 2 - 16;
-      ctx.drawImage(playerImage, dx, dy, 32, 32);
-    }
-
     function updatePlayer() {
-      if (keys["ArrowUp"]) player.y -= player.speed;
-      if (keys["ArrowDown"]) player.y += player.speed;
-      if (keys["ArrowLeft"]) player.x -= player.speed;
-      if (keys["ArrowRight"]) player.x += player.speed;
+      if (keys['ArrowLeft']) player.x -= player.speed;
+      if (keys['ArrowRight']) player.x += player.speed;
+      if (keys['ArrowUp']) player.y -= player.speed;
+      if (keys['ArrowDown']) player.y += player.speed;
 
       player.x += joystick.dx * player.speed;
       player.y += joystick.dy * player.speed;
 
-      player.x = Math.max(0, Math.min(player.x, mapWidth * TILE_SIZE));
-      player.y = Math.max(0, Math.min(player.y, mapHeight * TILE_SIZE));
+      player.x = Math.max(0, Math.min(player.x, tilemap.mapWidth * TILE_SIZE));
+      player.y = Math.max(0, Math.min(player.y, tilemap.mapHeight * TILE_SIZE));
 
       camera.x = player.x;
       camera.y = player.y;
     }
 
+    function drawPlayer() {
+      ctx.drawImage(playerImage, canvas.width / 2 - 16, canvas.height / 2 - 16, 32, 32);
+    }
+
     function gameLoop() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      tilemap.layers.forEach(drawTileLayer);
+      tilemap.layers.forEach(drawLayer);
       updatePlayer();
       drawPlayer();
       requestAnimationFrame(gameLoop);
@@ -149,15 +147,12 @@
       gameLoop();
     };
 
-    const joystick = { dx: 0, dy: 0 };
+    // Joystick Logic
     const joystickContainer = document.getElementById("joystick-container");
     const joystickStick = document.getElementById("joystick");
-
     let isDragging = false;
 
-    joystickContainer.addEventListener("touchstart", (e) => {
-      isDragging = true;
-    });
+    joystickContainer.addEventListener("touchstart", () => isDragging = true);
 
     joystickContainer.addEventListener("touchmove", (e) => {
       if (!isDragging) return;
