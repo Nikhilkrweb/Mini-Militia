@@ -97,46 +97,19 @@
       player.y = data.height * data.tileheight / 2;
     }
 
-    function getTileAt(x, y) {
-      const tx = Math.floor(x / TILE_SIZE);
-      const ty = Math.floor(y / TILE_SIZE);
-      if (tx < 0 || tx >= tilemap.mapWidth || ty < 0 || ty >= tilemap.mapHeight) return 0;
-      const index = ty * tilemap.mapWidth + tx;
-      const solidLayer = tilemap.layers.find(l => l.name === "tile");
-      if (!solidLayer) return 0;
-      return solidLayer.data[index];
-    }
-
-    function isRectColliding(x, y, width, height) {
-      const corners = [
-        [x, y],
-        [x + width - 1, y],
-        [x, y + height - 1],
-        [x + width - 1, y + height - 1]
-      ];
-      return corners.some(([cx, cy]) => getTileAt(cx, cy) !== 0);
-    }
-
     function drawLayer(layer) {
       const data = layer.data;
       for (let y = 0; y < tilemap.mapHeight; y++) {
         for (let x = 0; x < tilemap.mapWidth; x++) {
           const index = y * tilemap.mapWidth + x;
           const gid = data[index];
-          const dx = x * TILE_SIZE - camera.x + canvas.width / 2 - player.x;
-          const dy = y * TILE_SIZE - camera.y + canvas.height / 2 - player.y;
           if (gid > 0) {
             const tileIndex = gid - tilemap.firstgid;
             const sx = tilemap.margin + (tileIndex % tilemap.tilesetColumns) * (TILE_SIZE + tilemap.spacing);
             const sy = tilemap.margin + Math.floor(tileIndex / tilemap.tilesetColumns) * (TILE_SIZE + tilemap.spacing);
+            const dx = x * TILE_SIZE - camera.x + canvas.width / 2 - player.x;
+            const dy = y * TILE_SIZE - camera.y + canvas.height / 2 - player.y;
             ctx.drawImage(tileImage, Math.floor(sx), Math.floor(sy), TILE_SIZE, TILE_SIZE, Math.floor(dx), Math.floor(dy), TILE_SIZE, TILE_SIZE);
-          }
-
-          // draw collision outline (debug)
-          const solidLayer = tilemap.layers.find(l => l.name === "tile");
-          if (solidLayer && solidLayer.data[index] !== 0) {
-            ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
-            ctx.strokeRect(Math.floor(dx), Math.floor(dy), TILE_SIZE, TILE_SIZE);
           }
         }
       }
@@ -163,15 +136,8 @@
       dx *= player.speed;
       dy *= player.speed;
 
-      const nextX = player.x + dx;
-      const nextY = player.y + dy;
-
-      if (!isRectColliding(nextX, player.y, player.width, player.height)) {
-        player.x = nextX;
-      }
-      if (!isRectColliding(player.x, nextY, player.width, player.height)) {
-        player.y = nextY;
-      }
+      player.x += dx;
+      player.y += dy;
 
       camera.x = player.x;
       camera.y = player.y;
@@ -179,8 +145,6 @@
 
     function drawPlayer() {
       ctx.drawImage(playerImage, canvas.width / 2 - 16, canvas.height / 2 - 16, 32, 32);
-      ctx.strokeStyle = 'lime';
-      ctx.strokeRect(canvas.width / 2 - 16, canvas.height / 2 - 16, 32, 32);
     }
 
     function gameLoop() {
@@ -202,16 +166,20 @@
 
     joystickContainer.addEventListener("touchstart", (e) => {
       isDragging = true;
-    });
+      e.preventDefault();
+    }, { passive: false });
 
     joystickContainer.addEventListener("touchmove", (e) => {
       if (!isDragging) return;
+      e.preventDefault();
+
       const touch = e.touches[0];
       const rect = joystickContainer.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
       const dx = touch.clientX - centerX;
       const dy = touch.clientY - centerY;
+
       const dist = Math.sqrt(dx * dx + dy * dy);
       const radius = rect.width / 2;
 
@@ -228,7 +196,7 @@
 
       joystick.dx = clampedDx / radius;
       joystick.dy = clampedDy / radius;
-    });
+    }, { passive: false });
 
     joystickContainer.addEventListener("touchend", () => {
       isDragging = false;
