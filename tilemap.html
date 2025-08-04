@@ -1,63 +1,87 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Tilemap Viewer</title>
   <style>
+    body {
+      margin: 0;
+      background: #333;
+      overflow: auto;
+    }
     canvas {
-      border: 2px solid #333;
       display: block;
-      margin: 20px auto;
-      background: #111;
+      margin: 0 auto;
+      background: #222;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas" width="512" height="512"></canvas>
+<canvas id="mapCanvas"></canvas>
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+<script>
+  const canvas = document.getElementById('mapCanvas');
+  const ctx = canvas.getContext('2d');
 
-    const TILE_SIZE = 32;
-    const TILESET_PATH = 'tileset.png'; // must match what you used in Tiled
-    const MAP_PATH = 'tilemap.json';    // JSON exported from Tiled
+  // Load the JSON file
+  fetch('tilemap.json')
+    .then(response => response.json())
+    .then(mapData => {
+      const tileWidth = mapData.tilewidth;
+      const tileHeight = mapData.tileheight;
+      const mapWidth = mapData.width;
+      const mapHeight = mapData.height;
 
-    const tilesetImage = new Image();
-    tilesetImage.src = TILESET_PATH;
+      // Set canvas size
+      canvas.width = mapWidth * tileWidth;
+      canvas.height = mapHeight * tileHeight;
 
-    tilesetImage.onload = () => {
-      fetch(MAP_PATH)
-        .then(res => res.json())
-        .then(drawMap);
-    };
+      const tileset = mapData.tilesets[0];
+      const tilesetImage = new Image();
+      tilesetImage.src = tileset.image;
 
-    function drawMap(map) {
-      const cols = map.width;
-      const rows = map.height;
-      const tileW = map.tilewidth;
-      const tileH = map.tileheight;
+      tilesetImage.onload = () => {
+        const columns = tileset.columns;
+        const margin = tileset.margin || 0;
+        const spacing = tileset.spacing || 0;
+        const firstgid = tileset.firstgid;
 
-      const tilesPerRow = tilesetImage.width / tileW;
+        // Function to draw a layer
+        function drawLayer(layer) {
+          const data = layer.data;
+          for (let y = 0; y < mapHeight; y++) {
+            for (let x = 0; x < mapWidth; x++) {
+              const index = y * mapWidth + x;
+              const gid = data[index];
 
-      for (let layer of map.layers) {
-        if (layer.name !== 'tile' && layer.name !== 'tilebg') continue;
+              if (gid > 0) {
+                const tileIndex = gid - firstgid;
+                const sx = margin + (tileIndex % columns) * (tileWidth + spacing);
+                const sy = margin + Math.floor(tileIndex / columns) * (tileHeight + spacing);
+                const dx = x * tileWidth;
+                const dy = y * tileHeight;
 
-        for (let i = 0; i < layer.data.length; i++) {
-          const gid = layer.data[i];
-
-          if (gid === 0) continue; // skip empty tile
-
-          const sx = ((gid - 1) % tilesPerRow) * tileW;
-          const sy = Math.floor((gid - 1) / tilesPerRow) * tileH;
-
-          const dx = (i % cols) * tileW;
-          const dy = Math.floor(i / cols) * tileH;
-
-          ctx.drawImage(tilesetImage, sx, sy, tileW, tileH, dx, dy, tileW, tileH);
+                ctx.drawImage(
+                  tilesetImage,
+                  sx, sy, tileWidth, tileHeight,
+                  dx, dy, tileWidth, tileHeight
+                );
+              }
+            }
+          }
         }
-      }
-    }
-  </script>
+
+        // Draw in order: tilebg then tile
+        const tilebg = mapData.layers.find(l => l.name === "tilebg");
+        const tile = mapData.layers.find(l => l.name === "tile");
+
+        if (tilebg) drawLayer(tilebg);
+        if (tile) drawLayer(tile);
+      };
+    })
+    .catch(err => {
+      console.error("Failed to load map:", err);
+    });
+</script>
 </body>
 </html>
