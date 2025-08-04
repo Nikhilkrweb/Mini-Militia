@@ -70,9 +70,7 @@
       height: 32,
       speed: 4,
       vx: 0,
-      vy: 0,
-      gravity: 0.5,
-      onGround: false
+      vy: 0
     };
 
     const camera = { x: 0, y: 0 };
@@ -110,6 +108,10 @@
       return solidLayer.data[index];
     }
 
+    function isColliding(x, y) {
+      return getTileAt(x, y) !== 0;
+    }
+
     function drawLayer(layer) {
       const data = layer.data;
       for (let y = 0; y < tilemap.mapHeight; y++) {
@@ -129,32 +131,27 @@
     }
 
     function updatePlayer() {
-      player.vx = (keys['ArrowRight'] || joystick.dx > 0.2 ? 1 : 0) - (keys['ArrowLeft'] || joystick.dx < -0.2 ? 1 : 0);
-      player.vx *= player.speed;
+      let vx = (keys['ArrowRight'] || joystick.dx > 0.2 ? 1 : 0) - (keys['ArrowLeft'] || joystick.dx < -0.2 ? 1 : 0);
+      let vy = (keys['ArrowDown'] || joystick.dy > 0.2 ? 1 : 0) - (keys['ArrowUp'] || joystick.dy < -0.2 ? 1 : 0);
+      vx *= player.speed;
+      vy *= player.speed;
 
-      if ((keys['ArrowUp'] || joystick.dy < -0.6) && player.onGround) {
-        player.vy = -10;
-        player.onGround = false;
+      const nextX = player.x + vx;
+      const nextY = player.y + vy;
+
+      const corners = [
+        [nextX, nextY],
+        [nextX + player.width, nextY],
+        [nextX, nextY + player.height],
+        [nextX + player.width, nextY + player.height]
+      ];
+
+      const blocked = corners.some(([cx, cy]) => isColliding(cx, cy));
+
+      if (!blocked) {
+        player.x = nextX;
+        player.y = nextY;
       }
-
-      player.vy += player.gravity;
-
-      let nextX = player.x + player.vx;
-      let nextY = player.y + player.vy;
-
-      const tileBelow = getTileAt(player.x + player.width / 2, nextY + player.height);
-      const tileFeet = getTileAt(nextX + player.width / 2, nextY + player.height);
-
-      if (tileFeet) {
-        player.vy = 0;
-        player.onGround = true;
-        nextY = Math.floor((player.y + player.height) / TILE_SIZE) * TILE_SIZE - player.height;
-      } else {
-        player.onGround = false;
-      }
-
-      player.x = nextX;
-      player.y = nextY;
 
       camera.x = player.x;
       camera.y = player.y;
