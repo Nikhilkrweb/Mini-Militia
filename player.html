@@ -12,10 +12,32 @@
     canvas {
       display: block;
     }
+    #joystick-container {
+      position: absolute;
+      left: 30px;
+      bottom: 30px;
+      width: 100px;
+      height: 100px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      touch-action: none;
+    }
+    #joystick {
+      position: absolute;
+      left: 25px;
+      top: 25px;
+      width: 50px;
+      height: 50px;
+      background: rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+    }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>  <script>
+  <canvas id="gameCanvas"></canvas>
+  <div id="joystick-container">
+    <div id="joystick"></div>
+  </div>  <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     canvas.width = window.innerWidth;
@@ -29,18 +51,16 @@
     tileImage.src = "tile64_new.png";
 
     const playerImage = new Image();
-    playerImage.src = "player.png"; // assumed to be 32x32 or scaled to match game
+    playerImage.src = "player.png";
 
-    // Replace this JSON with actual parsed data or load via fetch
     const tilemap = {
       layers: [],
       tilewidth: 64,
       tileheight: 64,
       tilesetColumns: 15,
-      tiles: [] // to be filled with tile indices for each layer
+      tiles: []
     };
 
-    // Placeholder: Load from external JSON if needed
     async function loadTilemap() {
       const res = await fetch("tilemap.json");
       const data = await res.json();
@@ -86,6 +106,10 @@
       if (keys["ArrowDown"]) player.y += player.speed;
       if (keys["ArrowLeft"]) player.x -= player.speed;
       if (keys["ArrowRight"]) player.x += player.speed;
+
+      // Joystick movement
+      player.x += joystick.dx * player.speed;
+      player.y += joystick.dy * player.speed;
     }
 
     function gameLoop() {
@@ -100,5 +124,41 @@
       await loadTilemap();
       gameLoop();
     };
+
+    // Joystick logic
+    const joystick = { dx: 0, dy: 0 };
+    const joystickContainer = document.getElementById("joystick-container");
+    const joystickStick = document.getElementById("joystick");
+
+    let isDragging = false;
+
+    joystickContainer.addEventListener("touchstart", (e) => {
+      isDragging = true;
+    });
+
+    joystickContainer.addEventListener("touchmove", (e) => {
+      if (!isDragging) return;
+      const touch = e.touches[0];
+      const rect = joystickContainer.getBoundingClientRect();
+      const x = touch.clientX - rect.left - 50;
+      const y = touch.clientY - rect.top - 50;
+
+      const dx = Math.max(-50, Math.min(50, x));
+      const dy = Math.max(-50, Math.min(50, y));
+
+      joystickStick.style.left = `${dx + 50 - 25}px`;
+      joystickStick.style.top = `${dy + 50 - 25}px`;
+
+      joystick.dx = dx / 50;
+      joystick.dy = dy / 50;
+    });
+
+    joystickContainer.addEventListener("touchend", () => {
+      isDragging = false;
+      joystickStick.style.left = "25px";
+      joystickStick.style.top = "25px";
+      joystick.dx = 0;
+      joystick.dy = 0;
+    });
   </script></body>
 </html>
